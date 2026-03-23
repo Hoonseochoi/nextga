@@ -1,134 +1,125 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bug, X, Upload, Send, File as FileIcon } from 'lucide-react';
+import { AlertCircle, X, Send } from 'lucide-react';
 import { uploadErrorReport } from '../lib/supabase';
 
 export default function ErrorReporter() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isVisible, setIsVisible] = useState(false); // Can be toggled externally if needed, but normally true when errors are likely
   const [email, setEmail] = useState('');
   const [content, setContent] = useState('');
-  const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; isError: boolean } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Expose toggle manually? Not strict, just let the user open it.
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+  const showToast = (msg: string, isError: boolean) => {
+    setToast({ msg, isError });
+    setTimeout(() => setToast(null), 4000);
   };
 
-  const handleSubmit = async () => {
-    if (!content.trim()) {
-      alert("제보 내용을 입력해주세요.");
-      return;
-    }
-    
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     try {
-      await uploadErrorReport(email, content, file ?? undefined);
-      alert("오류 제보가 성공적으로 접수되었습니다.\n소중한 의견 감사합니다!");
+      const file = fileRef.current?.files?.[0];
+      await uploadErrorReport(email, content, file);
+      showToast('오류 제보가 성공적으로 접수되었습니다!', false);
       setIsExpanded(false);
+      setEmail('');
       setContent('');
-      setFile(null);
-    } catch (err) {
-      alert("오류 제보 중 문제가 발생했습니다. 나중에 다시 시도해주세요.");
-      console.error(err);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      showToast('제보 중 문제가 발생했습니다: ' + msg, true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <motion.div
-        layout
-        initial={{ borderRadius: 32 }}
-        className={`bg-gray-900 border border-gray-700 shadow-2xl overflow-hidden text-white transition-all`}
-        style={{
-           width: isExpanded ? '340px' : 'auto',
-        }}
-      >
-        <motion.div 
-          layout="position"
-          className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none hover:bg-gray-800 transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-            <Bug className="w-4 h-4 text-red-400" />
-          </div>
-          {!isExpanded ? (
-            <span className="text-sm font-medium whitespace-nowrap text-gray-200 pr-2">
-              오류/건의사항 제보하기
-            </span>
-          ) : (
-            <div className="flex-1 flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-100">오류 제보</span>
-              <button 
-                className="p-1 hover:bg-gray-700 rounded-full transition-colors"
-                onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-          )}
-        </motion.div>
+    <>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-2xl text-white text-sm font-bold shadow-xl"
+            style={{ backgroundColor: toast.isError ? '#EF4444' : '#10B981' }}
+          >
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      <div className="fixed bottom-6 right-6 z-50">
         <AnimatePresence>
-          {isExpanded && (
+          {isExpanded ? (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="px-5 pb-5 pt-1 flex flex-col gap-3"
+              key="expanded"
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              className="w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 flex flex-col gap-4"
             >
-              <div className="space-y-1">
-                <input
-                  type="email"
-                  placeholder="답변 받을 이메일 (선택)"
-                  className="w-full bg-gray-800 border-none rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:ring-1 focus:ring-red-500/50 outline-none"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div className="space-y-1">
-                <textarea
-                  placeholder="오류 내용이나 건의사항을 자세히 적어주세요.&#13;&#10;(예: 00보험사 26종이 누락되었어요)"
-                  className="w-full bg-gray-800 border-none rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 min-h-[100px] resize-none focus:ring-1 focus:ring-red-500/50 outline-none"
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  disabled={isSubmitting}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between mt-1">
-                <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition-colors bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600">
-                  <Upload className="w-3.5 h-3.5" />
-                  {file ? <span className="truncate max-w-[120px]">{file.name}</span> : <span>PDF / 스크린샷 첨부</span>}
-                  <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleFileChange} disabled={isSubmitting} />
-                </label>
-                
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? '전송중...' : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      제보하기
-                    </>
-                  )}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-[var(--color-meritz-primary)]" />
+                  오류 제보
+                </h3>
+                <button onClick={() => setIsExpanded(false)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+                  <X className="w-4 h-4 text-gray-400" />
                 </button>
               </div>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+                <input
+                  type="email"
+                  placeholder="이메일 (선택)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-[var(--color-meritz-primary)] transition-colors"
+                />
+                <textarea
+                  placeholder="어떤 문제가 발생했나요?"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  required
+                  rows={4}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-[var(--color-meritz-primary)] resize-none transition-colors"
+                />
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf,image/*"
+                  className="text-xs text-gray-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-gray-600 hover:file:bg-gray-200"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !content}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[var(--color-meritz-primary)] text-white text-sm font-black disabled:opacity-50 transition-opacity"
+                >
+                  <Send className="w-4 h-4" />
+                  {isSubmitting ? '처리 중...' : '제보하기'}
+                </button>
+              </form>
             </motion.div>
+          ) : (
+            <motion.button
+              key="collapsed"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              onClick={() => setIsExpanded(true)}
+              className="flex items-center gap-2 bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-lg hover:bg-gray-700 transition-colors"
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              오류 제보
+            </motion.button>
           )}
         </AnimatePresence>
-      </motion.div>
-    </div>
+      </div>
+    </>
   );
 }

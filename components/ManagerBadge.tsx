@@ -1,103 +1,108 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { ManagerInfo, CounterState } from '../lib/types';
 
 interface ManagerBadgeProps {
-  level: number;
-  exp: number;
-  required: number;
-  count: number;
-  name?: string;
+  managerInfo: ManagerInfo | null;
+  counter: CounterState;
 }
 
-export default function ManagerBadge({ level, exp, required, count, name = '매니저' }: ManagerBadgeProps) {
+export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const badgeRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (badgeRef.current && !badgeRef.current.contains(event.target as Node)) {
-        setIsExpanded(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  if (!managerInfo) {
+    return (
+      <div className="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md border border-gray-100 shadow-sm rounded-2xl px-4 py-2 flex items-center gap-3">
+        <div className="text-center">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">오늘</p>
+          <p className="text-sm font-black text-[var(--color-meritz-primary)]">{counter.daily.toLocaleString()}</p>
+        </div>
+        <div className="w-px h-8 bg-gray-100" />
+        <div className="text-center">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">누적</p>
+          <p className="text-sm font-black text-gray-700">{counter.total.toLocaleString()}</p>
+        </div>
+      </div>
+    );
+  }
 
-  const progressPercent = level >= 10 ? 100 : Math.min(100, Math.round((exp / required) * 100));
+  const progressPct =
+    managerInfo.level >= 10
+      ? 100
+      : Math.min(100, Math.round((managerInfo.exp / managerInfo.required) * 100));
 
   return (
-    <div className="absolute top-4 right-4 z-50 pointer-events-auto" ref={badgeRef}>
-      <motion.div 
-        layout
-        className={`relative ${isExpanded ? 'w-64' : 'w-auto'} overflow-hidden rounded-2xl shadow-lg bg-white/90 backdrop-blur border border-white/20 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer level-theme-${level}`}
-        onClick={() => setIsExpanded(!isExpanded)}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        {/* Closed State (Simple Badge) */}
-        <div className={`flex items-center gap-2 px-4 py-3 ${isExpanded ? 'border-b border-gray-100' : ''}`}>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 overflow-hidden ring-2 ring-white/50 relative">
-            {/* The image should point to public/level/lv*.png which we need to copy over later */}
-            <img src={`/level/lv${level}.png`} alt={`Level ${level}`} className="w-full h-full object-cover scale-[1.15]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold tracking-super-tight text-gray-500 uppercase leading-none mb-0.5">Manager</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-gray-800 leading-none">{name}</span>
-              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-sm bg-[var(--primary-color)] text-white shadow-sm leading-none flex items-center">
-                LV.{level}
-              </span>
+    <div className="fixed top-4 right-4 z-50">
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            className="absolute top-14 right-0 w-72 bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 flex flex-col gap-4"
+          >
+            <div className="flex items-center gap-4">
+              <img
+                src={`/level/lv${managerInfo.level}.png`}
+                alt={`레벨 ${managerInfo.level}`}
+                className="w-16 h-16 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <div>
+                <p className="text-xs text-gray-400 font-bold">매니저</p>
+                <p className="text-lg font-black text-gray-800">{managerInfo.name}</p>
+                <p className="text-sm font-black text-[var(--color-meritz-primary)]">LV.{managerInfo.level}</p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Expanded State (Details) */}
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-4 py-4"
-            >
-              <div className="flex justify-between items-end mb-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-gray-500 mb-0.5">다음 레벨까지</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-gray-800">{exp}</span>
-                    <span className="text-sm font-bold text-gray-400">/ {required}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-semibold text-gray-400 block mb-0.5">총 실행횟수</span>
-                  <span className="text-sm font-black text-[var(--primary-color)]">{count}회</span>
-                </div>
+            <div>
+              <div className="flex justify-between text-[11px] font-bold text-gray-400 mb-1">
+                <span>경험치</span>
+                <span>{managerInfo.exp} / {managerInfo.required}</span>
               </div>
-
-              {/* Progress Bar */}
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden mb-2 relative shadow-inner">
-                <motion.div 
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <motion.div
+                  className="h-2 rounded-full bg-[var(--color-meritz-primary)]"
                   initial={{ width: 0 }}
-                  animate={{ width: `${progressPercent}%` }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="absolute top-0 left-0 h-full rounded-full bg-[var(--primary-color)] shadow-[0_0_8px_var(--primary-color)] transition-all duration-300"
-                ></motion.div>
-                {/* Shine effect */}
-                <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-[100%] animate-[shimmer_2s_infinite]"></div>
+                  animate={{ width: `${progressPct}%` }}
+                  transition={{ duration: 0.6 }}
+                />
               </div>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {managerInfo.level >= 10
+                  ? '최고 레벨에 도달했습니다!'
+                  : `다음 레벨까지 ${managerInfo.required - managerInfo.exp}회 남았습니다.`}
+              </p>
+            </div>
 
-              <div className="text-center">
-                <span className="text-[10px] font-medium text-gray-400">
-                  {level >= 10 ? '최고 레벨에 도달했습니다!' : `다음 레벨까지 ${required - exp}회 남았습니다.`}
-                </span>
+            <div className="flex gap-3">
+              <div className="flex-1 bg-gray-50 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">오늘</p>
+                <p className="text-lg font-black text-[var(--color-meritz-primary)]">{counter.daily.toLocaleString()}</p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+              <div className="flex-1 bg-gray-50 rounded-2xl p-3 text-center">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">누적</p>
+                <p className="text-lg font-black text-gray-700">{counter.total.toLocaleString()}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        onClick={() => setIsExpanded((v) => !v)}
+        className="bg-white/80 backdrop-blur-md border border-gray-100 shadow-sm rounded-2xl px-4 py-2 flex items-center gap-2 hover:shadow-md transition-all"
+      >
+        <div className="w-8 h-8 rounded-xl bg-[var(--color-meritz-primary)] flex items-center justify-center text-white text-xs font-black">
+          {managerInfo.level}
+        </div>
+        <div className="text-left">
+          <p className="text-[10px] font-bold text-gray-400 leading-none">LV.{managerInfo.level}</p>
+          <p className="text-xs font-black text-gray-800 leading-tight">{managerInfo.name}</p>
+        </div>
+      </button>
     </div>
   );
 }
