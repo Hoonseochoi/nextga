@@ -2,14 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ManagerInfo, CounterState } from '../lib/types';
+import type { ManagerInfo } from '../lib/types';
 
 interface ManagerBadgeProps {
   managerInfo: ManagerInfo | null;
-  counter: CounterState;
 }
 
-export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps) {
+export default function ManagerBadge({ managerInfo }: ManagerBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -24,21 +23,7 @@ export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isExpanded]);
 
-  if (!managerInfo) {
-    return (
-      <div className="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md border border-gray-100 shadow-sm rounded-2xl px-4 py-2 flex items-center gap-3">
-        <div className="text-center">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">오늘</p>
-          <p className="text-sm font-black text-[var(--color-meritz-primary)]">{counter.daily.toLocaleString()}</p>
-        </div>
-        <div className="w-px h-8 bg-gray-100" />
-        <div className="text-center">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">누적</p>
-          <p className="text-sm font-black text-gray-700">{counter.total.toLocaleString()}</p>
-        </div>
-      </div>
-    );
-  }
+  if (!managerInfo) return null;
 
   const progressPct =
     managerInfo.level >= 10
@@ -89,16 +74,6 @@ export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <div className="flex-1 bg-gray-50 rounded-2xl p-3 text-center">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">오늘</p>
-                <p className="text-lg font-black text-[var(--color-meritz-primary)]">{counter.daily.toLocaleString()}</p>
-              </div>
-              <div className="flex-1 bg-gray-50 rounded-2xl p-3 text-center">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">누적</p>
-                <p className="text-lg font-black text-gray-700">{counter.total.toLocaleString()}</p>
-              </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

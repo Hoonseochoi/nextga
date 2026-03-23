@@ -46,7 +46,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen text-gray-900 selection:bg-red-500/30">
-      <ManagerBadge managerInfo={managerInfo} counter={counter} />
+      <ManagerBadge managerInfo={managerInfo} />
       <ErrorReporter />
 
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-16 flex flex-col items-center gap-8">
