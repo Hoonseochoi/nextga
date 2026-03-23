@@ -1,14 +1,22 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import {
   findDetails,
   formatDisplayAmount,
   parseKoAmount,
 } from '../lib/analyzer';
-import type { CoverageItem, CoverageDetailEntry, DetailItem } from '../lib/types';
+import type {
+  CoverageItem,
+  CoverageDetailEntry,
+  DetailItem,
+  VariantEntry,
+  PassthroughEntry,
+  PassthroughDualEntry,
+  JongEntry,
+} from '../lib/types';
 
 interface CoverageListProps {
   rawCoverages: CoverageItem[];
@@ -30,39 +38,32 @@ function resolveDetails(item: CoverageItem): DetailItem[] | null {
 
   if (Array.isArray(details)) return details as DetailItem[];
 
-  if ('type' in details) {
-    const typed = details as CoverageDetailEntry;
-
-    if ('type' in typed && (typed as { type: string }).type === 'variant') {
-      const variant = typed as import('../lib/types').VariantEntry;
+  type TypedEntry = VariantEntry | PassthroughEntry | PassthroughDualEntry | JongEntry;
+  const typed = details as TypedEntry;
+  switch (typed.type) {
+    case 'variant': {
       const amountVal = parseKoAmount(item.amount);
-      let data = variant.data[amountVal.toString()];
+      let data = typed.data[amountVal.toString()];
       if (!data) {
-        if (amountVal > 6000) data = variant.data['8000'] ?? variant.data['10000'];
-        else if (amountVal > 3000) data = variant.data['5000'] ?? variant.data['4000'];
-        else if (amountVal > 1000) data = variant.data['2000'] ?? variant.data['1000'];
-        if (!data && variant.data['10000']) data = variant.data['10000'];
+        if (amountVal > 6000) data = typed.data['8000'] ?? typed.data['10000'];
+        else if (amountVal > 3000) data = typed.data['5000'] ?? typed.data['4000'];
+        else if (amountVal > 1000) data = typed.data['2000'] ?? typed.data['1000'];
+        if (!data && typed.data['10000']) data = typed.data['10000'];
       }
       return data ?? null;
     }
-
-    if ('type' in typed && (typed as { type: string }).type === 'passthrough') {
-      const pt = typed as import('../lib/types').PassthroughEntry;
-      return [{ name: pt.displayName, amount: item.amount }];
+    case 'passthrough': {
+      return [{ name: typed.displayName, amount: item.amount }];
     }
-
-    if ('type' in typed && (typed as { type: string }).type === 'passthrough-dual') {
-      const pt = typed as import('../lib/types').PassthroughDualEntry;
-      return [{ name: pt.displayName, amount: item.amount }];
+    case 'passthrough-dual': {
+      return [{ name: typed.displayName, amount: item.amount }];
     }
-
-    if ('type' in typed && (typed as { type: string }).type === '26jong') {
-      const jong = typed as import('../lib/types').JongEntry;
-      return [{ name: jong.detailName, amount: item.amount }];
+    case '26jong': {
+      return [{ name: typed.detailName, amount: item.amount }];
     }
+    default:
+      return null;
   }
-
-  return null;
 }
 
 export default function CoverageList({ rawCoverages }: CoverageListProps) {
@@ -141,10 +142,13 @@ export default function CoverageList({ rawCoverages }: CoverageListProps) {
                 </div>
               </div>
 
+              <AnimatePresence>
               {resolvedDetails && isExpanded && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  style={{ overflow: 'hidden' }}
                   className="pt-4 border-t border-gray-100"
                 >
                   <p className="text-[11px] font-black text-red-600 mb-3 flex items-center gap-1.5">
@@ -159,7 +163,7 @@ export default function CoverageList({ rawCoverages }: CoverageListProps) {
                         </div>
                         {det.sub?.map((sub, j) => {
                           const parts = sub.trim().split(' ');
-                          const subAmt = parts.pop();
+                          const subAmt = parts.pop() ?? '';
                           const subName = parts.join(' ');
                           return (
                             <div key={j} className="flex justify-between pl-4 mt-1.5 text-[10px] text-gray-400/80 font-medium">
@@ -176,6 +180,7 @@ export default function CoverageList({ rawCoverages }: CoverageListProps) {
                   </div>
                 </motion.div>
               )}
+              </AnimatePresence>
             </motion.div>
           );
         })}

@@ -111,7 +111,7 @@ export default function SummaryGrid({ summaryMap, grandTotalMin, grandTotalMax }
                         {sub.sub?.length ? (
                           sub.sub.map((inner, j) => {
                             const parts = inner.trim().split(' ');
-                            const iAmt = parts.pop();
+                            const iAmt = parts.pop() ?? '';
                             const iName = parts.join(' ');
                             return (
                               <div key={j} className="text-[10px] mt-1 flex items-center justify-between font-medium text-gray-400">

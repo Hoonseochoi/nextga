@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ManagerInfo, CounterState } from '../lib/types';
 
@@ -11,6 +11,18 @@ interface ManagerBadgeProps {
 
 export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isExpanded]);
 
   if (!managerInfo) {
     return (
@@ -34,7 +46,7 @@ export default function ManagerBadge({ managerInfo, counter }: ManagerBadgeProps
       : Math.min(100, Math.round((managerInfo.exp / managerInfo.required) * 100));
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div ref={containerRef} className="fixed top-4 right-4 z-50">
       <AnimatePresence>
         {isExpanded && (
           <motion.div
