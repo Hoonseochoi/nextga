@@ -1,0 +1,521 @@
+import { coverageDetailsMap } from './config';
+import type { CoverageItem, SummaryGroup, SummaryDetailItem, DetailItem, CoverageDetailEntry, VariantEntry, PassthroughEntry, PassthroughDualEntry, JongEntry } from './types';
+
+// ── Helper: Parse Korean Amount ──
+export function parseKoAmount(str: string): number {
+    if (!str) return 0;
+    // Remove ",", " ", and "원" at the very end
+    let clean = str.replace(/[,원\s]/g, '');
+    let total = 0;
+
+    // 1. Split by '억'
+    if (clean.includes('억')) {
+        const parts = clean.split('억');
+        total += (parseInt(parts[0]) || 0) * 10000; // 1억 = 10000만
+        clean = parts[1] || '';
+    }
+
+    // 2. Handle remaining parts (천, 백, 십, 만)
+    if (clean.includes('만')) {
+        const parts = clean.split('만');
+        let manPart = parts[0];
+        let val = 0;
+
+        if (manPart.includes('천')) {
+            const p = manPart.split('천');
+            val += (parseInt(p[0]) || 0) * 1000;
+            manPart = p[1] || '';
+        }
+        if (manPart.includes('백')) {
+            const p = manPart.split('백');
+            val += (parseInt(p[0]) || 0) * 100;
+            manPart = p[1] || '';
+        }
+        if (manPart.includes('십')) {
+            const p = manPart.split('십');
+            val += (parseInt(p[0]) || 0) * 10;
+            manPart = p[1] || '';
+        }
+        val += (parseInt(manPart) || 0);
+        total += val;
+    } else if (clean) {
+        // No '만', but might have '천' etc. (e.g., "500" or "2천500")
+        let val = 0;
+        if (clean.includes('천')) {
+            const p = clean.split('천');
+            val += (parseInt(p[0]) || 0) * 1000;
+            clean = p[1] || '';
+        }
+        if (clean.includes('백')) {
+            const p = clean.split('백');
+            val += (parseInt(p[0]) || 0) * 100;
+            clean = p[1] || '';
+        }
+        if (clean.includes('십')) {
+            const p = clean.split('십');
+            val += (parseInt(p[0]) || 0) * 10;
+            clean = p[1] || '';
+        }
+        val += (parseInt(clean) || 0);
+        total += val;
+    }
+    return total; // 만원 단위 반환
+}
+
+// ── Helper: Format Korean Amount ──
+export function formatKoAmount(val: number): string {
+    if (val === 0) return "0원";
+    const uk = Math.floor(val / 10000);
+    const man = val % 10000;
+    let result = "";
+    if (uk > 0) result += `${uk}억 `;
+    if (man > 0) result += `${man.toLocaleString()}만`;
+    return result.trim() + "원";
+}
+
+// ── Helper: Normalize any amount string to #,###만원 format ──
+export function formatDisplayAmount(str: string): string {
+    if (!str) return str;
+    const val = parseKoAmount(str);
+    if (val === 0) return str; // 파싱 실패 시 원본 유지
+    return formatKoAmount(val);
+}
+
+// Helper to find details (Global Scope)
+export function findDetails(itemName: string): CoverageDetailEntry | undefined {
+    let details: CoverageDetailEntry | undefined = coverageDetailsMap[itemName];
+    if (!details) {
+        // 1. III (Best Priority)
+        if (itemName.includes("암 통합치료비") && (itemName.includes("III") || itemName.includes("Ⅲ"))) {
+            details = coverageDetailsMap["암진단및치료비(암 통합치료비III)"];
+        }
+        // 2. II (High Priority)
+        else if (itemName.includes("암 통합치료비") && (itemName.includes("Ⅱ") || itemName.includes("II")) && itemName.includes("비급여")) {
+            details = coverageDetailsMap["암 통합치료비Ⅱ(비급여)"];
+        }
+        // 3. Fallbacks
+        else if (itemName.includes("암 통합치료비") && itemName.includes("주요치료")) {
+            details = coverageDetailsMap["암 통합치료비(주요치료)(비급여(전액본인부담 포함), 암중점치료기관(상급 종합병원 포함))"];
+        }
+        else if (itemName.includes("암 통합치료비") && itemName.includes("비급여") && itemName.includes("전액본인부담")) {
+            details = coverageDetailsMap["암 통합치료비(비급여(전액본인부담 포함), 암중점치료기관(상급종합병원 포함))"];
+        }
+        else if (itemName.includes("암 통합치료비") && itemName.includes("기본형")) {
+            details = coverageDetailsMap["암 통합치료비(기본형)(암중점치료기관(상급종합병원 포함))"];
+        }
+        else if (itemName.includes("암 통합치료비") && itemName.includes("실속형")) {
+            details = coverageDetailsMap["암 통합치료비(실속형)(암중점치료기관(상급종합병원 포함))"];
+        }
+        else if (itemName.includes("중입자방사선")) {
+            details = coverageDetailsMap["항암중입자방사선치료비"];
+        } else if (itemName.includes("세기조절방사선")) {
+            details = coverageDetailsMap["항암세기조절방사선치료비"];
+        } else if (itemName.includes("면역항암약물") || itemName.includes("면역항암")) {
+            details = coverageDetailsMap["특정면역항암약물허가치료비"];
+        } else if (itemName.includes("표적항암약물") || itemName.includes("표적항암")) {
+            details = coverageDetailsMap["표적항암약물허가치료비"];
+        } else if (itemName.includes("양성자방사선") || itemName.includes("양성자")) {
+            details = coverageDetailsMap["항암양성자방사선치료비"];
+        } else if (itemName.includes("26종")) {
+            details = coverageDetailsMap["26종항암방사선및약물치료비"];
+        } else if (itemName.includes("다빈치") && itemName.includes("로봇")) {
+            if (!itemName.includes("특정암") || itemName.includes("제외")) {
+                details = coverageDetailsMap["다빈치로봇암수술비"];
+            }
+        } else if ((itemName.includes("암수술비") || itemName.includes("암 수술비")) && itemName.includes("유사암제외")) {
+            details = coverageDetailsMap["암수술비(유사암제외)"];
+        } else if (itemName.includes("계속받는") && itemName.includes("항암방사선") && itemName.includes("약물") && itemName.includes("급여")) {
+            details = coverageDetailsMap["계속받는 항암방사선약물치료비(급여)"];
+        }
+    }
+    return details;
+}
+
+// ── Aggregate Hierarchical Summary Logic ──
+export function calculateHierarchicalSummary(results: CoverageItem[]): Map<string, SummaryGroup> {
+    const summaryMap = new Map<string, SummaryGroup>();
+    let first26SummaryFound = false; // 26종 첫 번째만 한눈에보기에 반영
+    results.forEach(item => {
+        let details: CoverageDetailEntry | null | undefined = coverageDetailsMap[item.name];
+        // Dictionary Lookup (Fallback Logic)
+        if (!details) {
+            // 1. III (Best Priority)
+            if (item.name.includes("암 통합치료비") && (item.name.includes("III") || item.name.includes("Ⅲ"))) {
+                details = coverageDetailsMap["암진단및치료비(암 통합치료비III)"];
+            }
+            // 2. II (High Priority) - Must check before generic non-covered
+            else if (item.name.includes("암 통합치료비") && (item.name.includes("Ⅱ") || item.name.includes("II")) && item.name.includes("비급여")) {
+                details = coverageDetailsMap["암 통합치료비Ⅱ(비급여)"];
+            }
+            // 3. Special variants or Generic fallback
+            else if (item.name.includes("암 통합치료비") && item.name.includes("주요치료")) {
+                details = coverageDetailsMap["암 통합치료비(주요치료)(비급여(전액본인부담 포함), 암중점치료기관(상급 종합병원 포함))"];
+            }
+            else if (item.name.includes("암 통합치료비") && item.name.includes("비급여") && item.name.includes("전액본인부담")) {
+                details = coverageDetailsMap["암 통합치료비(비급여(전액본인부담 포함), 암중점치료기관(상급종합병원 포함))"];
+            } else if (item.name.includes("암 통합치료비") && item.name.includes("기본형")) {
+                details = coverageDetailsMap["암 통합치료비(기본형)(암중점치료기관(상급종합병원 포함))"];
+            } else if (item.name.includes("암 통합치료비") && item.name.includes("실속형")) {
+                details = coverageDetailsMap["암 통합치료비(실속형)(암중점치료기관(상급종합병원 포함))"];
+            }
+            // 10년갱신 개별 담보 키워드 매칭
+            else if (item.name.includes("중입자방사선")) {
+                details = coverageDetailsMap["항암중입자방사선치료비"];
+            } else if (item.name.includes("세기조절방사선")) {
+                details = coverageDetailsMap["항암세기조절방사선치료비"];
+            } else if (item.name.includes("면역항암약물") || item.name.includes("면역항암")) {
+                details = coverageDetailsMap["특정면역항암약물허가치료비"];
+            } else if (item.name.includes("표적항암약물") || item.name.includes("표적항암")) {
+                details = coverageDetailsMap["표적항암약물허가치료비"];
+            } else if (item.name.includes("양성자방사선") || item.name.includes("양성자")) {
+                details = coverageDetailsMap["항암양성자방사선치료비"];
+            } else if (item.name.includes("26종") && (item.name.includes("치료비") || item.name.includes("약물"))) {
+                details = coverageDetailsMap["26종항암방사선및약물치료비"];
+            } else if (item.name.includes("다빈치") && item.name.includes("로봇")) {
+                // Exclude "특정암" (Specific Cancer) but keep "특정암제외" (General)
+                if (!item.name.includes("특정암") || item.name.includes("제외")) {
+                    details = coverageDetailsMap["다빈치로봇암수술비"];
+                }
+            } else if ((item.name.includes("암수술비") || item.name.includes("암 수술비")) && item.name.includes("유사암제외")) {
+                details = coverageDetailsMap["암수술비(유사암제외)"];
+            } else if (item.name.includes("계속받는") && item.name.includes("항암방사선") && item.name.includes("약물") && item.name.includes("급여")) {
+                details = coverageDetailsMap["계속받는 항암방사선약물치료비(급여)"];
+            }
+        }
+        // Handle Variant Type (Amount-based selection)
+        if (details && (details as VariantEntry).type === 'variant') {
+            const variantDetails = details as VariantEntry;
+            const amountVal = parseKoAmount(item.amount);
+            let variantData: DetailItem[] | undefined = variantDetails.data[amountVal.toString()];
+            // Fallback default
+            if (!variantData) {
+                // Approximate matching for limits (e.g. 7XXX -> 8000, 4XXX -> 5000)
+                if (amountVal > 6000) variantData = variantDetails.data["8000"] || variantDetails.data["10000"];
+                else if (amountVal > 3000) variantData = variantDetails.data["5000"] || variantDetails.data["4000"];
+                else if (amountVal > 1000) variantData = variantDetails.data["2000"] || variantDetails.data["1000"];
+                if (!variantData && variantDetails.data["10000"]) variantData = variantDetails.data["10000"];
+            }
+            details = variantData ?? null;
+        }
+        // Handle Passthrough Type (자기 금액 그대로 사용)
+        if (details && (details as PassthroughEntry).type === 'passthrough') {
+            const passthroughDetails = details as PassthroughEntry;
+            details = [{ name: passthroughDetails.displayName, amount: item.amount }];
+        }
+        // Handle Passthrough-Dual: 세부내역 "암 수술비 ###원", 한눈에보기 암수술비+다빈치로봇수술비 둘 다 반영
+        if (details && (details as PassthroughDualEntry).type === 'passthrough-dual') {
+            const dualDetails = details as PassthroughDualEntry;
+            details = dualDetails.summaryTargets.map(t => ({
+                name: dualDetails.displayName,
+                amount: item.amount,
+                targetName: t
+            }));
+        }
+        if (details && (details as JongEntry).type === '26jong') {
+            const jongDetails = details as JongEntry;
+            if (!first26SummaryFound) {
+                first26SummaryFound = true;
+                details = jongDetails.summaryItems.map(d => ({
+                    name: d.name,
+                    amount: item.amount,
+                    targetName: d.targetName // targetName 전달
+                }));
+            } else {
+                details = null;
+            }
+        }
+        if (details && Array.isArray(details)) {
+            (details as DetailItem[]).forEach(det => {
+                // Normalize Name to find "Common Group"
+                const groupingSource = det.targetName || det.name;
+                let normalizedName = groupingSource;
+                // [KEYWORD-BASED CATEGORIZATION]
+                // 1. targetName이 명시적으로 있으면 최우선 적용 (26종 매핑 보장)
+                if (det.targetName) {
+                    normalizedName = det.targetName;
+                }
+                // 2. 그 외의 경우 키워드 매칭
+                else if (groupingSource.includes("표적")) {
+                    normalizedName = "표적항암약물치료비";
+                } else if (groupingSource.includes("면역")) {
+                    normalizedName = "면역항암약물치료비";
+                } else if (groupingSource.includes("양성자")) {
+                    normalizedName = "양성자방사선치료비";
+                } else if (groupingSource.includes("중입자")) {
+                    normalizedName = "중입자방사선치료비";
+                } else if (groupingSource.includes("다빈치") || groupingSource.includes("로봇")) {
+                    normalizedName = "다빈치로봇수술비";
+                } else if (groupingSource.includes("세기조절")) {
+                    normalizedName = "세기조절방사선치료비";
+                } else if (groupingSource.includes("수술") && groupingSource.includes("암") && !groupingSource.includes("다빈치") && !groupingSource.includes("로봇")) {
+                    normalizedName = "암수술비";
+                } else if (groupingSource.includes("약물") && !groupingSource.includes("표적") && !groupingSource.includes("면역")) {
+                    normalizedName = "항암약물치료비";
+                } else if (groupingSource.includes("방사선") && !groupingSource.includes("양성자") && !groupingSource.includes("중입자") && !groupingSource.includes("세기")) {
+                    normalizedName = "항암방사선치료비";
+                } else {
+                    // Fallback: Remove special chars
+                    normalizedName = groupingSource.replace(/[^가-힣0-9]/g, '');
+                }
+                // 3. Make Display Name pretty if needed (or just use normalized?)
+                // Actually, we want to group by "meaning", so removing spaces helps matching "표적 항암" == "표적항암"
+                if (!summaryMap.has(normalizedName)) {
+                    summaryMap.set(normalizedName, {
+                        displayName: normalizedName, // Temporary
+                        totalMin: 0,
+                        totalMax: 0,
+                        items: []
+                    });
+                }
+                const group = summaryMap.get(normalizedName) as SummaryGroup;
+                // Amount Parsing (Support Range)
+                const valMin = parseKoAmount(det.amount);
+                const valMax = det.maxAmount ? parseKoAmount(det.maxAmount) : valMin;
+                group.totalMin += valMin;
+                group.totalMax += valMax;
+                const detailItem: SummaryDetailItem = {
+                    name: det.name,
+                    amount: det.amount,
+                    maxAmount: det.maxAmount,
+                    source: item.name,
+                    hiddenInDetail: det.hiddenInDetail,
+                    sub: det.sub // 전달용 sub 항목 추가
+                };
+                group.items.push(detailItem);
+                // Update display name (pick longest readable name)
+                const is26JongItem = det.name.includes("26종");
+                if ((det.name.length > group.displayName.length || group.displayName === normalizedName) && !is26JongItem) {
+                    // 괄호 및 특수문자 제거 후 예쁜 이름으로 저장
+                    const cleanName = det.name.replace(/\([^)]*\)/g, '').trim();
+                    if (cleanName.length > 0) {
+                        group.displayName = cleanName;
+                    }
+                }
+            });
+        }
+    });
+    return summaryMap;
+}
+
+export function extractRawCoverages(text: string): CoverageItem[] {
+    if (!text || typeof text !== 'string') {
+        return [];
+    }
+    const lines = text.split('\n');
+    let targetLines = lines;
+    let startIndex = -1;
+    let endIndex = -1;
+    // 1. 범위 필터링 (Noise Reduction) - 개선: 설명문이 아닌 실제 테이블 헤더만 감지
+    const startKeywords = ["가입담보리스트", "가입담보", "담보사항"];
+    const endKeywords = ["주의사항", "유의사항", "알아두실", "계약자/피보험자사항", "계약자", "보험료사항"];
+    // 시작점: 짧은 줄에서만 찾기 (설명문이 아닌 테이블 헤더/제목)
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].replace(/\s+/g, '');
+        if (startIndex === -1) {
+            // 40자 이하인 줄에서만 시작 키워드 검색 (긴 설명문 제외)
+            if (line.length < 40 && startKeywords.some(k => line.includes(k))) {
+                startIndex = i;
+            }
+        }
+        else if (endIndex === -1) {
+            // 종료 키워드도 짧은 줄에서만 (설명문에 포함된 "상품설명서" 등 무시)
+            if (line.length < 40 && endKeywords.some(k => line.includes(k))) {
+                endIndex = i;
+                break;
+            }
+        }
+    }
+    if (startIndex !== -1) {
+        if (endIndex === -1) endIndex = lines.length;
+        targetLines = lines.slice(startIndex, endIndex);
+        // 범위가 너무 작으면 (10줄 미만) 전체 문서 스캔으로 Fallback
+        if (targetLines.length < 10) {
+            targetLines = lines;
+            startIndex = -1; // reset for id calculation
+        }
+    }
+    // 1.5 줄 이어붙이기 (PDF 텍스트 레이어에서 줄이 분리된 경우 처리)
+    // 예: "갱신형 암 통합치료비(실속형)(암중점치료기관(상급종합병원 포함))(통합간\n편가입)\n1천만원"
+    //   → "갱신형 암 통합치료비(실속형)(암중점치료기관(상급종합병원 포함))(통합간편가입) 1천만원"
+    const amountRegex = /(?:[0-9,]+\s*(?:억원|만원|억|만|천|백|십|원)\s*)+|세부보장참조/;
+    const mergedLines: string[] = [];
+    let pendingLine = '';
+    // [NEW] 페이지 맨윗줄 이슈: "담보사항", "가입담보 가입금액 보험료" 등 테이블 헤더가 병합되면
+    // "가입금액" 블랙리스트에 걸림. 헤더 행 감지 시 병합 중단.
+    const isTableHeader = (s: string): boolean => {
+        const t = s.replace(/\s+/g, '');
+        return (t.length < 50 && t.includes('가입담보') && t.includes('가입금액') && t.includes('보험료')) ||
+            (t.length < 30 && ['담보사항', '가입담보리스트', '가입담보'].some(k => t.includes(k)));
+    };
+    for (let i = 0; i < targetLines.length; i++) {
+        const trimmed = targetLines[i].trim();
+        if (!trimmed) {
+            if (pendingLine) { mergedLines.push(pendingLine); pendingLine = ''; }
+            mergedLines.push('');
+            continue;
+        }
+        // [NEW] 테이블 헤더 행 감지 시 병합 중단 (가입금액 블랙리스트 오탐 방지)
+        if (isTableHeader(trimmed)) {
+            if (pendingLine) { mergedLines.push(pendingLine); pendingLine = ''; }
+            mergedLines.push(trimmed);
+            continue;
+        }
+        // 현재 줄에 금액이 있는지 체크
+        const hasAmount = amountRegex.test(trimmed);
+
+        // [NEW] 만약 대기중인 줄이 있는데, 현재 줄이 새로운 항목 시작(숫자 또는 ┗)이라면
+        // 절대 이전 줄과 합쳐져서는 안 되므로 대기중인 줄을 강제로 내보냄.
+        if (pendingLine && /^(\d{1,4}\s+|┗\s+)/.test(trimmed)) {
+            mergedLines.push(pendingLine);
+            pendingLine = '';
+        }
+
+        if (pendingLine) {
+            // 이전에 금액 없는 줄이 대기 중 → 현재 줄과 합침
+            pendingLine += ' ' + trimmed;
+            if (hasAmount || amountRegex.test(pendingLine)) {
+                mergedLines.push(pendingLine);
+                pendingLine = '';
+            }
+            // 금액 없으면 계속 대기 (다음 줄과도 합칠 수 있음)
+        } else {
+            if (hasAmount) {
+                mergedLines.push(trimmed);
+            } else {
+                // 금액 없는 줄 → 다음 줄과 합칠 수 있으므로 대기
+                // 단, 너무 짧은 줄(5자 미만)이거나 숫자만 있는 줄은 그냥 보냄
+                if (trimmed.length < 5 || /^\d+$/.test(trimmed)) {
+                    mergedLines.push(trimmed);
+                } else {
+                    pendingLine = trimmed;
+                }
+            }
+        }
+    }
+    if (pendingLine) mergedLines.push(pendingLine);
+    targetLines = mergedLines;
+    const results: CoverageItem[] = [];
+    // 2. 추출 로직 + 강력한 필터링
+    // 제외할 단어들 (법적 문구, 설명, 예시표 등)
+    const blacklist = [
+        "해당 상품은", "경우", "따라", "법에", "지급하여", "포함되어", "보호법",
+        "해약환급금", "예시표", "적용이율", "최저보증", "평균공시",
+        "가입금액인", "합계", "점검",
+        "참고", "확인하시기", "바랍니다", "입니다", "됩니다",
+        // 조건문/약관 설명 필터
+        "최초계약", "경과시점", "감액적용", "면책",
+        "법률상", "부담하여", "손해를", "배상책임을",
+        "이전 진단", "이전 수술", "이전 치료",
+        "같은 질병", "같은 종류", "반은 경",
+        "※", "보장개시", "납입면제",
+        // 계약 정보 필터
+        "남성", "여성", "만기환급금"
+    ];
+    targetLines.forEach((line, idx) => {
+        const originalIdx = (startIndex === -1 ? 0 : startIndex) + idx;
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        // A. 블랙리스트 체크 (문장 전체)
+        if (blacklist.some(word => trimmed.includes(word))) return;
+        // [NEW] "세부보장"으로 시작하는 줄은 노이즈로 간주하고 제외 (세부보장참조는 허용하되, 문장 시작이 세부보장이면 제외)
+        if (trimmed.startsWith("세부보장")) return;
+        // B. 금액 패턴 찾기
+        let match: RegExpMatchArray | null = trimmed.match(/((?:[0-9,]+\s*(?:억원|만원|억|만|천|백|십|원)\s*)+)/);
+        // "원"만 있는 경우는 위에서 이미 처리됨 (천|백|십|원 합쳐져서)
+        // match가 없으면 fallback 없음 (이미 통합함)
+        // "세부보장참조" 패턴도 금액으로 인정 (상위 담보항목)
+        let isRefAmount = false;
+        if (!match && trimmed.includes('세부보장참조')) {
+            // 세부보장참조 뒤의 보험료 숫자를 찾아서 그 앞까지를 이름으로 사용
+            const refMatch: RegExpMatchArray | null = trimmed.match(/세부보장참조/);
+            if (refMatch) {
+                match = refMatch;
+                match[1] = '세부보장참조';
+                isRefAmount = true;
+            }
+        }
+        if (match) {
+            const amountStr = match[1];
+            // C. 담보명 추출 및 정제
+            let namePart = trimmed.substring(0, match.index).trim();
+            // 0. [NEW] 앞부분에 붙은 "20년 / 20년" 같은 날짜 패턴 제거 (텍스트 병합 이슈 해결)
+            // 패턴: "숫자년" 또는 "숫자세"가 포함된 앞부분 제거
+            namePart = namePart.replace(/^[\d]+(년|세|월)\s*[\/]?\s*[\d]*(년|세|월)?\s*/, '').trim();
+            // 혹시 숫자가 남아있다면 한번 더 제거 (예: "278 갱신형...")
+            namePart = namePart.replace(/^[\d]+\s+/, '').trim();
+            // 1. 카테고리 헤더 제거 (표의 첫번째 열 내용이 섞여 들어간 경우)
+            // 예: "치료비 112 암...", "기본계약 32...", "3대진단 64..."
+            // 주의: "기타피부암" 처럼 단어의 일부인 경우는 제외하고, "기타 110" 처럼 분리된 경우만 제거
+            const categoryKeywords = ["기본계약", "3대진단", "치료비", "수술비", "입원비", "배상책임", "후유장해", "기타", "2대진단", "질병", "상해", "운전자"];
+            for (const key of categoryKeywords) {
+                // 키워드 뒤에 공백이나 숫자가 오는 경우에만 제거 (정규식 사용)
+                // 예: "기타 110" -> 제거, "기타피부암" -> 유지
+                const regex = new RegExp('^' + key + '(?=[\\s\\d])');
+                if (regex.test(namePart)) {
+                    namePart = namePart.replace(regex, '').trim();
+                }
+            }
+            // 2. 순번/코드 제거 (예: "32 ", "112 ", "64 ", "ㄴ ", "- ")
+            // 주의: "26종" 같은건 지우면 안됨. 숫자 뒤에 공백이나 기호가 있는 경우만 제거
+            namePart = namePart.replace(/^[\d]+\s+/, '');
+            namePart = namePart.replace(/^[ㄴ\-•·\s]+/, '');
+            // 한번 더 체크 (예: "치료비" 지우고 났더니 "112 "가 남은 경우)
+            namePart = namePart.replace(/^[\d]+\s+/, '');
+            // 3. 끝부분 공백/점 제거
+            namePart = namePart.replace(/[.\s]+$/, '');
+            // 4. "세부보장참조" 제거
+            namePart = namePart.replace(/세부보장참조/g, '').trim();
+            // 5. 괄호 안 내용 정리
+            // 맨 앞의 짧은 괄호만 제거 (예: "(무)암진단비" -> "암진단비")
+            // 주의: non-greedy로 첫 번째 괄호쌍만 제거 ("(무)암(실속형)" -> "암(실속형)" 유지)
+            namePart = namePart.replace(/^\([^)]*\)/, '').trim();
+            // 6. [NEW] 끝부분에 붙은 숫자/코드 제거 (예: "상급종합병원116" -> "상급종합병원")
+            // 패턴: 한글 뒤에 붙은 숫자들 제거
+            namePart = namePart.replace(/([가-힣])\d+$/, '$1').trim();
+            // 7. [NEW] OCR 변형: "치료비암통합치료비" -> "암 통합치료비" (카테고리+담보가 붙어 인식된 경우)
+            namePart = namePart.replace(/^치료비암통합치료비/, '암 통합치료비');
+            // 8. [NEW] OCR 변형: "암통합치료비" -> "암 통합치료비" (공백 누락 시 정규화)
+            namePart = namePart.replace(/암통합치료비/g, '암 통합치료비');
+            // E. 세부 내용(보험료, 납기/만기) 추출
+            // 나머지 뒷부분에서 정보 추출
+            // 예: "4천만원 15,560 20년 / 100세"
+            // match[0]은 "4천만원" (금액 전체 매치)
+            // 금액 뒷부분 자르기
+            let suffix = trimmed.substring(match.index! + match[0].length).trim();
+            let premium = "-";
+            let period = "-";
+            // 1. 보험료 찾기 (숫자 + 콤마 조합, 보통 금액 바로 뒤에 옴)
+            // 예: "15,560" 또는 "2,144"
+            const premiumMatch: RegExpMatchArray | null = suffix.match(/([0-9,]+)/);
+            if (premiumMatch) {
+                premium = premiumMatch[1] + "원";
+                // 보험료 찾았으면 그 뒤 내용에서 기간 찾기
+                suffix = suffix.substring(premiumMatch.index! + premiumMatch[0].length).trim();
+            }
+            // 2. 납기/만기 찾기 (예: "20년 / 100세", "20년/100세")
+            // 패턴: "숫자년" 또는 "숫자세"가 포함된 문자열
+            const periodMatch: RegExpMatchArray | null = suffix.match(/([0-9]+\s*년\s*\/?[^]*)/);
+            if (periodMatch) {
+                period = periodMatch[1].trim();
+            }
+            // D. 담보명 유효성 체크
+            // - 너무 짧으면(1글자) 제외
+            // - 너무 길면(120글자 이상) 설명문일 확률 높음 -> 제외
+            // - 문장형 어미로 끝나면 제외 ("다", "요", "음", "함")
+            if (namePart.length > 1 && namePart.length < 120) {
+                const lastChar = namePart.slice(-1);
+                if (!['다', '요', '음', '함', '는', '은'].includes(lastChar)) {
+                    results.push({
+                        id: originalIdx,
+                        name: namePart,
+                        amount: amountStr,
+                        premium: premium,
+                        period: period,
+                        original: trimmed
+                    });
+                }
+            }
+        }
+    });
+    return results;
+}
