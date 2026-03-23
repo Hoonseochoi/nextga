@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:\\\\obsidian_hoons\\\\Hoonseo\\\\NEXTGA\\\\작업로그\")",
+      "Bash(mkdir -p \"C:\\\\obsidian_hoons\\\\Hoonseo\\\\NEXTGA\\\\스펙\")",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"chore: 환경 설정 + 기존 JS 스켈레톤 제거:*)"
+    ]
+  }
+}
