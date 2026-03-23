@@ -3,53 +3,51 @@
 export async function exportAsImage(originalFileName: string): Promise<void> {
   const html2canvas = (await import('html2canvas-pro')).default;
 
-  const target = document.querySelector('main');
+  const target = document.getElementById('capture-zone');
   if (!target) throw new Error('캡처 대상을 찾을 수 없습니다.');
 
+  // 폰트 로딩 대기
   await document.fonts.ready;
 
   const finalFileName = `${originalFileName.replace(/\.pdf$/i, '')} 분석.png`;
 
-  const canvas = await html2canvas(target as HTMLElement, {
+  const canvas = await html2canvas(target, {
     scale: 3,
     useCORS: true,
     backgroundColor: '#EBEBEB',
     onclone: (clonedDoc: Document) => {
-      const cloneMain = clonedDoc.querySelector('main');
-      if (!cloneMain) return;
+      const zone = clonedDoc.getElementById('capture-zone');
+      if (!zone) return;
 
-      const allowedIds = ['file-info-bar', 'insight-section', 'summary-section'];
-      Array.from(cloneMain.children).forEach((child) => {
-        const el = child as HTMLElement;
-        if (!allowedIds.includes(el.id)) {
-          el.style.display = 'none';
-        }
+      // sticky + backdrop 제거 (캡처 시 레이아웃 깨짐 방지)
+      const fileInfoBar = clonedDoc.getElementById('file-info-bar');
+      if (fileInfoBar) {
+        fileInfoBar.style.position = 'relative';
+        fileInfoBar.style.top = 'auto';
+        fileInfoBar.style.zIndex = 'auto';
+        fileInfoBar.style.backdropFilter = 'none';
+        (fileInfoBar.style as unknown as Record<string, string>)['webkitBackdropFilter'] = 'none';
+        fileInfoBar.style.backgroundColor = 'rgba(255,255,255,0.95)';
+        // 버튼 숨김
+        fileInfoBar.querySelectorAll('button').forEach((btn) => {
+          (btn as HTMLElement).style.display = 'none';
+        });
+      }
+
+      // blur 장식 요소 제거
+      zone.querySelectorAll('.blur-3xl').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
       });
 
-      allowedIds.forEach((id) => {
-        const el = clonedDoc.getElementById(id);
-        if (el) {
-          el.style.display = 'block';
-          el.classList.remove('hidden');
-          el.style.opacity = '1';
-          el.style.transform = 'translateY(0)';
-          el.style.animation = 'none';
-
-          el.querySelectorAll('button').forEach((btn) => {
-            (btn as HTMLElement).style.display = 'none';
-          });
-          el.querySelectorAll('.blur-3xl').forEach((blurEl) => {
-            (blurEl as HTMLElement).style.display = 'none';
-          });
-        }
-      });
-
+      // 애니메이션·트랜지션 제거 + 폰트 강제 지정
       const style = clonedDoc.createElement('style');
       style.innerHTML = `
         * {
           font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
           animation: none !important;
           transition: none !important;
+          opacity: 1 !important;
+          transform: none !important;
         }
       `;
       clonedDoc.head.appendChild(style);
