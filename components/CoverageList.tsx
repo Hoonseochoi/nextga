@@ -68,7 +68,7 @@ function resolveDetails(item: CoverageItem): DetailItem[] | null {
 
 export default function CoverageList({ rawCoverages }: CoverageListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const toggleExpand = useCallback((id: number) => {
     setExpandedIds((prev) => {
