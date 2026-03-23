@@ -50,6 +50,38 @@ export default function Home() {
       <ErrorReporter />
 
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-16 flex flex-col items-center gap-8">
+        {/* 분석 횟수 카운터 — 랜딩/분석 양쪽 모두 상단 중앙 표시 */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 bg-white/80 backdrop-blur-sm border border-gray-100 shadow-sm rounded-full px-4 py-2"
+        >
+          {/* LIVE 인디케이터 */}
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+            </span>
+            <span className="text-[10px] font-black text-red-500 tracking-widest uppercase">Live</span>
+          </span>
+          <span className="w-px h-3 bg-gray-200" />
+          {/* TODAY */}
+          <span className="flex items-center gap-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Today</span>
+            <span className="text-sm font-black text-gray-800" style={{ fontFamily: 'var(--font-outfit)' }}>
+              {counter.daily.toLocaleString()}
+            </span>
+          </span>
+          <span className="w-px h-3 bg-gray-200" />
+          {/* TOTAL */}
+          <span className="flex items-center gap-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total</span>
+            <span className="text-sm font-black text-[var(--color-meritz-primary)]" style={{ fontFamily: 'var(--font-outfit)' }}>
+              {counter.total.toLocaleString()}
+            </span>
+          </span>
+        </motion.div>
+
         <AnimatePresence mode="wait">
           {!scanResult && (
             <motion.div

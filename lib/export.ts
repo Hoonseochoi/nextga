@@ -21,9 +21,9 @@ export async function exportAsImage(originalFileName: string): Promise<void> {
       const zone = clonedDoc.getElementById('capture-zone');
       if (!zone) return;
 
-      // 캡처 영역 패딩 + 배경 + overflow 설정 (그림자 잘림 방지)
-      zone.style.padding = '24px';
-      zone.style.boxSizing = 'border-box';
+      // 캡처 영역: 고정 너비 860px + 20px 패딩 → 총 900px (우측 잘림 방지)
+      zone.style.width = '860px';
+      zone.style.padding = '20px';
       zone.style.backgroundColor = '#EBEBEB';
       zone.style.overflow = 'visible';
 

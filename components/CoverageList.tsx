@@ -68,6 +68,7 @@ function resolveDetails(item: CoverageItem): DetailItem[] | null {
 
 export default function CoverageList({ rawCoverages }: CoverageListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleExpand = useCallback((id: number) => {
     setExpandedIds((prev) => {
@@ -88,9 +89,29 @@ export default function CoverageList({ rawCoverages }: CoverageListProps) {
 
   return (
     <div className="w-full">
-      <h3 className="text-base font-black text-gray-700 mb-4">
-        📋 전체 보장 내역 ({rawCoverages.length}건)
-      </h3>
+      <button
+        onClick={() => setIsCollapsed((v) => !v)}
+        className="w-full flex items-center justify-between mb-4 group"
+      >
+        <h3 className="text-base font-black text-gray-700">
+          📋 전체 보장 내역 ({rawCoverages.length}건)
+        </h3>
+        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 group-hover:text-gray-600 transition-colors">
+          <span>{isCollapsed ? '펼치기' : '접기'}</span>
+          <ChevronDown
+            className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}
+          />
+        </div>
+      </button>
+      <AnimatePresence initial={false}>
+      {!isCollapsed && (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        style={{ overflow: 'hidden' }}
+      >
       <div className="flex flex-col gap-3">
         {sorted.map((item, idx) => {
           const resolvedDetails = resolveDetails(item);
@@ -185,6 +206,9 @@ export default function CoverageList({ rawCoverages }: CoverageListProps) {
           );
         })}
       </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
     </div>
   );
 }
