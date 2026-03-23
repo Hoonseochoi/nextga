@@ -29,7 +29,7 @@ export default function ErrorReporter() {
     
     setIsSubmitting(true);
     try {
-      await uploadErrorReport(email, content, file);
+      await uploadErrorReport(email, content, file ?? undefined);
       alert("오류 제보가 성공적으로 접수되었습니다.\n소중한 의견 감사합니다!");
       setIsExpanded(false);
       setContent('');
