@@ -90,56 +90,59 @@ export default function Home() {
 
         {scanResult && (
           <motion.div
-            id="capture-zone"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full flex flex-col gap-8"
           >
-            <div
-              id="file-info-bar"
-              className="w-full flex justify-between items-center bg-white/70 backdrop-blur-md p-4 rounded-3xl border border-gray-200/50 shadow-sm sticky top-4 z-40"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-xl font-bold text-[var(--color-meritz-primary)]">
-                  {scanResult.customerName.charAt(0)}
+            {/* 캡처 영역: 이름바 + 인사이트카드 + 9개 집계카드 */}
+            <div id="capture-zone" className="flex flex-col gap-8">
+              <div
+                id="file-info-bar"
+                className="w-full flex justify-between items-center bg-white/70 backdrop-blur-md p-4 rounded-3xl border border-gray-200/50 shadow-sm sticky top-4 z-40"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-xl font-bold text-[var(--color-meritz-primary)]">
+                    {scanResult.customerName.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900">{scanResult.customerName}님</h2>
+                    <p className="text-sm font-bold text-[var(--color-meritz-primary)]">보장 분석 결과</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-gray-900">{scanResult.customerName}님</h2>
-                  <p className="text-sm font-bold text-[var(--color-meritz-primary)]">보장 분석 결과</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExport}
+                    className="w-12 h-12 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:shadow transition-all text-gray-600"
+                    title="이미지로 저장"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={reset}
+                    className="w-12 h-12 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:shadow transition-all text-gray-600 group"
+                    title="다시 분석하기"
+                  >
+                    <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleExport}
-                  className="w-12 h-12 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:shadow transition-all text-gray-600"
-                  title="이미지로 저장"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={reset}
-                  className="w-12 h-12 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-50 hover:shadow transition-all text-gray-600 group"
-                  title="다시 분석하기"
-                >
-                  <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                </button>
-              </div>
+
+              <InsightCard
+                customerName={scanResult.customerName}
+                grandTotalMin={scanResult.grandTotalMin}
+                grandTotalMax={scanResult.grandTotalMax}
+                expertName={managerInfo?.expertImageUrl ? managerInfo.name : '메리'}
+                expertImageUrl={managerInfo?.expertImageUrl ?? '/mery.png'}
+              />
+
+              <SummaryGrid
+                summaryMap={scanResult.summaryMap}
+                grandTotalMin={scanResult.grandTotalMin}
+                grandTotalMax={scanResult.grandTotalMax}
+              />
             </div>
 
-            <InsightCard
-              customerName={scanResult.customerName}
-              grandTotalMin={scanResult.grandTotalMin}
-              grandTotalMax={scanResult.grandTotalMax}
-              expertName={managerInfo?.expertImageUrl ? managerInfo.name : '메리'}
-              expertImageUrl={managerInfo?.expertImageUrl ?? '/mery.png'}
-            />
-
-            <SummaryGrid
-              summaryMap={scanResult.summaryMap}
-              grandTotalMin={scanResult.grandTotalMin}
-              grandTotalMax={scanResult.grandTotalMax}
-            />
-
+            {/* 캡처 제외 영역: 세부 담보 내역 */}
             <CoverageList rawCoverages={scanResult.rawCoverages} />
           </motion.div>
         )}
