@@ -34,6 +34,11 @@ export async function exportAsImage(originalFileName: string): Promise<void> {
         });
       }
 
+      // 반응형 그리드 → 3열 고정 (html2canvas는 뷰포트 없어 lg: 브레이크포인트 미적용)
+      zone.querySelectorAll('.grid').forEach((el) => {
+        (el as HTMLElement).style.gridTemplateColumns = 'repeat(3, 1fr)';
+      });
+
       // blur 장식 요소 제거
       zone.querySelectorAll('.blur-3xl').forEach((el) => {
         (el as HTMLElement).style.display = 'none';
