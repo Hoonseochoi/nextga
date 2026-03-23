@@ -142,8 +142,8 @@ function getTodayKey(): string {
 export async function fetchAnalysisCounts(): Promise<{ total: number; daily: number }> {
   try {
     const [totalRes, dailyRes] = await Promise.all([
-      fetch(`${API_BASE}/${COUNTER_NS}/${TOTAL_KEY}`),
-      fetch(`${API_BASE}/${COUNTER_NS}/${getTodayKey()}`),
+      fetch(`${API_BASE}/${COUNTER_NS}/${TOTAL_KEY}/`),
+      fetch(`${API_BASE}/${COUNTER_NS}/${getTodayKey()}/`),
     ]);
     const [totalData, dailyData] = await Promise.all([
       totalRes.json(),
@@ -158,8 +158,8 @@ export async function fetchAnalysisCounts(): Promise<{ total: number; daily: num
 export async function incrementAnalysisCounts(): Promise<{ total: number; daily: number } | null> {
   try {
     const [totalRes, dailyRes] = await Promise.all([
-      fetch(`${API_BASE}/${COUNTER_NS}/${TOTAL_KEY}/up`),
-      fetch(`${API_BASE}/${COUNTER_NS}/${getTodayKey()}/up`),
+      fetch(`${API_BASE}/${COUNTER_NS}/${TOTAL_KEY}/up/`),
+      fetch(`${API_BASE}/${COUNTER_NS}/${getTodayKey()}/up/`),
     ]);
     const [totalData, dailyData] = await Promise.all([
       totalRes.json(),
