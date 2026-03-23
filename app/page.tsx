@@ -129,8 +129,8 @@ export default function Home() {
               customerName={scanResult.customerName}
               grandTotalMin={scanResult.grandTotalMin}
               grandTotalMax={scanResult.grandTotalMax}
-              expertName={managerInfo?.name ?? '전문가'}
-              expertImageUrl={managerInfo?.expertImageUrl ?? null}
+              expertName={managerInfo?.expertImageUrl ? managerInfo.name : '메리'}
+              expertImageUrl={managerInfo?.expertImageUrl ?? '/mery.png'}
             />
 
             <SummaryGrid
