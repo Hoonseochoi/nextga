@@ -15,9 +15,17 @@ export async function exportAsImage(originalFileName: string): Promise<void> {
     scale: 3,
     useCORS: true,
     backgroundColor: '#EBEBEB',
+    // 넓은 뷰포트로 렌더링 → 카드 우측 잘림 방지
+    windowWidth: 1280,
     onclone: (clonedDoc: Document) => {
       const zone = clonedDoc.getElementById('capture-zone');
       if (!zone) return;
+
+      // 캡처 영역 패딩 + 배경 + overflow 설정 (그림자 잘림 방지)
+      zone.style.padding = '24px';
+      zone.style.boxSizing = 'border-box';
+      zone.style.backgroundColor = '#EBEBEB';
+      zone.style.overflow = 'visible';
 
       // sticky + backdrop 제거 (캡처 시 레이아웃 깨짐 방지)
       const fileInfoBar = clonedDoc.getElementById('file-info-bar');
